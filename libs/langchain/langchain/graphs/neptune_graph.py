@@ -49,6 +49,7 @@ class NeptuneGraph:
         credentials_profile_name: Optional[str] = None,
         region_name: Optional[str] = None,
         service: str = "neptunedata",
+        no_sign_requests: bool = False
     ) -> None:
         """Create a new Neptune graph wrapper instance."""
 
@@ -57,8 +58,19 @@ class NeptuneGraph:
                 self.client = client
             else:
                 import boto3
+                from botocore import UNSIGNED
+                from botocore.config import Config
+
+                if no_sign_requests:
+                    # Do not sign the requests
+                    config = Config(signature_version=UNSIGNED)
+                else:
+                    config = Config()
 
                 if credentials_profile_name is not None:
+                    if no_sign_requests:
+                        # Throw exception if no_sign_requests is True and profile is set
+                        raise ValueError("credentials_profile_name should not be set when no_sign_requests is True")
                     session = boto3.Session(profile_name=credentials_profile_name)
                 else:
                     # use default credentials
@@ -72,7 +84,7 @@ class NeptuneGraph:
 
                 client_params["endpoint_url"] = f"{protocol}://{host}:{port}"
 
-                self.client = session.client(service, **client_params)
+                self.client = session.client(service, config=config, **client_params)
 
         except ImportError:
             raise ModuleNotFoundError(
